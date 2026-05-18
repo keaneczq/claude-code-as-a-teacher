@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x /Users/keane/git/cc-chat/scripts/new-topic.sh && ls -la /Users/keane/git/cc-chat/scripts/)",
+      "Bash(./scripts/new-topic.sh feature-engineering \"Feature Engineering\")",
+      "WebSearch"
+    ]
+  }
+}
