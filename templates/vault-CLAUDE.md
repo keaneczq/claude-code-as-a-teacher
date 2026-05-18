@@ -34,9 +34,15 @@ Never load `transcripts/` into context unless the user explicitly asks.
 
 ### During session
 **Auto-write (do this without asking):**
-- A clear definition, formula, theorem, or canonical example emerges → write/update `concepts/<name>.md` immediately.
+**触发"立即落档当前概念"的信号（任一即可）：**
+  - 用户明确确认理解："对"、"懂了"、"没问题"、"理解了"、"OK"
+  - 讨论自然过渡到下一个概念（当前概念是"已完成"状态）
+  - 用户显式说："记下来"、"这点重要"、"save this"
+**落档纪律：**
+  - 只落已确认的那一个概念。**绝不连带写还在讨论中或刚被提到的相邻概念**——
+    即使两者强相关。下一个概念等它自己的确认信号。
+  - 漏掉触发信号被用户提醒后，只补漏掉的那个，不要"顺便"扩写。
 - A code example or derivation the user accepts → write to `examples/` or the relevant concept file.
-- User says "记下来" / "这点重要" / "save this" → write to the most fitting location.
 - Use Obsidian wikilinks `[[concept-name]]` liberally to connect concepts.
 
 **Do NOT auto-write:**
@@ -69,7 +75,9 @@ Each `concepts/<name>.md`:
 <plain-language intuition, why it matters>
 
 ## 公式 / 形式化
-<math, code, or formal statement>
+<必须用 LaTeX：行内 $...$，块级 $$...$$。
+不要用 ASCII 排版（如 `WoE_i = ln(...)`）——那是终端临时显示，不进文件。
+Concept 文件的渲染目标是 Obsidian。>
 
 ## 例子
 <canonical example, ideally one good one>
