@@ -95,10 +95,10 @@ The original `templates/vault-CLAUDE.md` stays put for now — it gets rewritten
 
 ```bash
 git status
-git diff --stat
+git diff --cached --stat
 ```
 
-Expected: two `R` (renamed) entries for the map/index templates (≥90% similarity), one `??` for `templates/modes/learning/CLAUDE.md`, no other changes.
+Expected: two `R` (renamed) entries for the map/index templates (≥90% similarity), one new file under `templates/modes/learning/CLAUDE.md`, no other changes.
 
 - [ ] **Step 4: Commit**
 
@@ -555,7 +555,7 @@ make_dirs_for_mode() # mode-dependent dir layout
 ./tests/test-new-topic.sh
 ```
 
-Expected: `Passed: 12  Failed: 0` (4+5+3 ok lines). If any fail, fix and re-run; do not move on with red tests.
+Expected: `Failed: 0`. (The exact ok-count is approximately 13; what matters is that nothing failed.) If any fail, fix and re-run; do not move on with red tests.
 
 - [ ] **Step 5: Manual sanity check against the existing repo**
 
@@ -837,12 +837,12 @@ read_mode() {
 # May echo extra warnings to stderr if focus file is missing.
 build_context_personal() {
   local topic_dir="$1" handoff="$2" warning="${3:-}"
-  printf '## Handoff from _index.md\n\n%s\n' "$handoff"
+  printf '## Handoff from _index.md\n\n%s' "$handoff"
   if [[ -n "$warning" ]]; then
-    printf '\n%s\n' "$warning"
+    printf '\n\n## 上次整理状态\n\n%s' "$warning"
   fi
   if [[ -f "$topic_dir/_profile.md" ]]; then
-    printf '\n## _profile.md\n\n'
+    printf '\n\n## _profile.md\n\n'
     cat "$topic_dir/_profile.md"
   fi
   # Find first "- positions/<name>" under "## 焦点子主题".
@@ -859,7 +859,7 @@ build_context_personal() {
   if [[ -n "$focus" ]]; then
     local fp="$topic_dir/positions/$focus.md"
     if [[ -f "$fp" ]]; then
-      printf '\n## positions/%s.md (focus)\n\n' "$focus"
+      printf '\n\n## positions/%s.md (focus)\n\n' "$focus"
       cat "$fp"
     else
       echo "WARN_MISSING_FOCUS=positions/$focus.md" >&2
@@ -871,8 +871,8 @@ build_context_personal() {
 - [ ] **Step 5: Wire dispatcher into the main flow**
 
 ```bash
-MODE=$(read_mode "$TOPIC_DIR" 2> >(MODE_WARN=$(cat); export MODE_WARN))
-# Or, more portable:
+# Capture stderr from read_mode (process-substitution would not propagate
+# variables back to this shell — use a temp file).
 MODE_WARN_FILE=$(mktemp)
 MODE=$(read_mode "$TOPIC_DIR" 2>"$MODE_WARN_FILE")
 MODE_WARN=$(cat "$MODE_WARN_FILE"); rm -f "$MODE_WARN_FILE"
