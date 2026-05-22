@@ -71,8 +71,8 @@ build_context_personal() {
     BEGIN { in_focus=0; in_comment=0 }
     /<!--/ { in_comment=1 }
     /-->/  { in_comment=0; next }
-    /^## 焦点子主题/ { in_focus=1; next }
-    in_focus && /^## / { exit }
+    !in_comment && /^## 焦点子主题/ { in_focus=1; next }
+    in_focus && !in_comment && /^## / { exit }
     in_focus && !in_comment && /^- positions\// {
       sub(/^- positions\//, "")
       sub(/[[:space:]]+$/, "")
@@ -148,6 +148,10 @@ HANDOFF="$(tail -n 30 "$INDEX")"
 HANDOFF_LINES="$(printf '%s\n' "$HANDOFF" | wc -l | tr -d ' ')"
 
 # Read mode (with stderr → temp file to capture WARN_INVALID_MODE).
+# Ensure temp warning files are cleaned up even on SIGINT / unexpected exit.
+MODE_WARN_FILE=""
+CTX_WARN_FILE=""
+trap '[[ -n "${MODE_WARN_FILE:-}" ]] && rm -f "$MODE_WARN_FILE"; [[ -n "${CTX_WARN_FILE:-}" ]] && rm -f "$CTX_WARN_FILE"' EXIT
 MODE_WARN_FILE=$(mktemp)
 MODE=$(read_mode "$CWD" 2>"$MODE_WARN_FILE")
 MODE_WARN=$(cat "$MODE_WARN_FILE"); rm -f "$MODE_WARN_FILE"
