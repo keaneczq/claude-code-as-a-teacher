@@ -454,7 +454,7 @@ Per @superpowers:test-driven-development: write failing tests first, then implem
 test_default_mode() {
   local vault topic
   vault=$(mk_vault)
-  CC_VAULT_ROOT="$vault" "$SCRIPT" demo-default "Demo Default" >/dev/null
+  CC_CHAT_VAULT="$vault" "$SCRIPT" demo-default "Demo Default" >/dev/null
   topic="$vault/demo-default"
 
   [[ -f "$topic/.cc-mode" ]]                         && ok ".cc-mode written" \
@@ -475,7 +475,7 @@ test_default_mode() {
 test_personal_mode() {
   local vault topic
   vault=$(mk_vault)
-  CC_VAULT_ROOT="$vault" "$SCRIPT" --mode personal personal "Personal" >/dev/null
+  CC_CHAT_VAULT="$vault" "$SCRIPT" --mode personal personal "Personal" >/dev/null
   topic="$vault/personal"
 
   [[ "$(cat "$topic/.cc-mode")" == "personal" ]]     && ok "personal: .cc-mode=personal" \
@@ -498,7 +498,7 @@ test_invalid_mode() {
   local vault rc
   vault=$(mk_vault)
   set +e
-  CC_VAULT_ROOT="$vault" "$SCRIPT" --mode bogus x "X" >/dev/null 2>&1
+  CC_CHAT_VAULT="$vault" "$SCRIPT" --mode bogus x "X" >/dev/null 2>&1
   rc=$?
   set -e
   [[ $rc -ne 0 ]]                                    && ok "invalid mode: exits non-zero ($rc)" \
@@ -532,7 +532,7 @@ If tests *pass* before any implementation, the test cases don't actually exercis
 Required changes (preserving existing behavior for the no-flag case where compatible):
 
 1. **Add `--mode` parsing.** Accept `--mode learning` or `--mode personal` as the first arg(s). Default to `learning`. Reject any other value with `echo "Unknown mode: $mode" >&2; exit 2`.
-2. **Honor `CC_VAULT_ROOT` env var** for testability. If set, use it as the vault root instead of `~/Keane/cc-chat`. (The test driver sets this; production runs leave it unset.)
+2. **Honor `CC_CHAT_VAULT` env var** for testability. If set, use it as the vault root instead of `~/Keane/cc-chat`. (The test driver sets this; production runs leave it unset.)
 3. **Read templates from `templates/modes/<mode>/`** instead of `templates/`. Map: `CLAUDE.md` → `<topic>/CLAUDE.md`, `topic-_map.md` → `<topic>/_map.md`, `topic-_index.md` → `<topic>/_index.md`. Apply `{{TOPIC_TITLE}}` substitution to map/index (and to `topic-_profile.md` if mode=personal).
 4. **Write `.cc-mode`** to the topic root with the mode name (single line, no trailing newline OK either way — `cat` and `[[ ==`  both work).
 5. **Mode-conditional dir set:**
@@ -560,7 +560,7 @@ Expected: `Passed: 12  Failed: 0` (4+5+3 ok lines). If any fail, fix and re-run;
 - [ ] **Step 5: Manual sanity check against the existing repo**
 
 ```bash
-TMP=$(mktemp -d); CC_VAULT_ROOT="$TMP" ./scripts/new-topic.sh smoke "Smoke"
+TMP=$(mktemp -d); CC_CHAT_VAULT="$TMP" ./scripts/new-topic.sh smoke "Smoke"
 ls -la "$TMP/smoke/"
 cat "$TMP/smoke/.cc-mode"
 rm -rf "$TMP"
@@ -602,11 +602,14 @@ Above the main flow, add:
 # Builds the additionalContext payload for Learning Mode.
 # Args: $1 = topic_dir, $2 = HANDOFF (already read), $3 = WARNING (may be empty)
 # Stdout: the additionalContext string.
+# Must reproduce the original layout exactly (including the
+# "## 上次整理状态" subheading when warning is non-empty) — this is a
+# pure refactor, no behavioral change.
 build_context_learning() {
   local topic_dir="$1" handoff="$2" warning="${3:-}"
-  printf '## Handoff from _index.md\n\n%s\n' "$handoff"
+  printf '## Handoff from _index.md\n\n%s' "$handoff"
   if [[ -n "$warning" ]]; then
-    printf '\n%s\n' "$warning"
+    printf '\n\n## 上次整理状态\n\n%s' "$warning"
   fi
 }
 ```
@@ -656,15 +659,21 @@ Adds the `.cc-mode` read, the dispatcher, and `build_context_personal`. Per @sup
 
 ```bash
 # Helper: invoke hook with a fake cwd, return additionalContext text.
+# Sets CC_CHAT_VAULT so the hook accepts the temp-dir cwd (the hook's
+# vault-root validation otherwise rejects anything outside ~/Keane/cc-chat).
 invoke_hook() {
   local cwd="$1"
-  echo "{\"cwd\":\"$cwd\"}" | "$SCRIPT" \
+  local vault
+  vault=$(dirname "$cwd")
+  echo "{\"cwd\":\"$cwd\"}" | CC_CHAT_VAULT="$vault" "$SCRIPT" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("hookSpecificOutput",{}).get("additionalContext",""), end="")'
 }
 
 invoke_hook_sysmsg() {
   local cwd="$1"
-  echo "{\"cwd\":\"$cwd\"}" | "$SCRIPT" \
+  local vault
+  vault=$(dirname "$cwd")
+  echo "{\"cwd\":\"$cwd\"}" | CC_CHAT_VAULT="$vault" "$SCRIPT" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("systemMessage",""), end="")'
 }
 
@@ -963,7 +972,7 @@ This works because `feature-engineering` does NOT yet have a `.cc-mode` file (mi
 
 ```bash
 TMP=$(mktemp -d)
-CC_VAULT_ROOT="$TMP" ./scripts/new-topic.sh --mode personal personal "Personal"
+CC_CHAT_VAULT="$TMP" ./scripts/new-topic.sh --mode personal personal "Personal"
 ls "$TMP/personal/"
 cat "$TMP/personal/.cc-mode"
 [[ -f "$TMP/CLAUDE.md" ]] && echo "vault signpost deployed (fresh-install path)"
