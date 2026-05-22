@@ -5,18 +5,19 @@
 ## 三层架构
 
 ```
-本仓库 (~/git/cc-chat/)         vault (~/Keane/cc-chat/)
-─────────────────────           ─────────────────────────
-templates/  ─── deploy ───→     CLAUDE.md (vault root)
-templates/  ─── instantiate ──→ <topic>/_map.md, _index.md
-scripts/    ─── invoke ───→     creates topic structure
+本仓库 (~/git/cc-chat/)         vault (~/Keane/cc-chat/)         hooks (~/.claude/settings.json)
+─────────────────────           ─────────────────────────        ──────────────────────────────
+templates/  ─── deploy ───→     CLAUDE.md (vault root)           SessionStart → session-start-context.sh
+templates/  ─── instantiate ──→ <topic>/_map.md, _index.md       SessionEnd   → export-transcript.sh
+scripts/    ─── invoke ───→     creates topic structure          (注入由 ./scripts/install-hooks.sh 完成)
 docs/                           <topic>/concepts/, ...
-                                <topic>/transcripts/
+                                <topic>/transcripts/  ←─── SessionEnd hook 自动落档（jsonl + md）
 ```
 
 - **本仓库**：开发产物，进入这里写代码、改模板、调脚本。
 - **vault**：运行时数据，进入某个 topic 目录后启动 `claude`，进行学习。
-- 两个职责严格分开——别在 vault 里写脚本，也别在本仓库里学知识。
+- **hooks**：把"开 session 时注入 handoff"和"关 session 时存档 transcript"自动化。
+- 三者职责严格分开——别在 vault 里写脚本，也别在本仓库里学知识。
 
 ## 启动 session 的标准流程
 
@@ -75,8 +76,12 @@ cd ~/git/cc-chat
 - 在 `_index.md` 留 handoff
 
 ### 结束
-- 当前不做 transcript 自动存档（第一周观察期）
-- Obsidian 的 git 插件会自动 commit vault，包括本次改动
+- 用户给出结束信号（"结束"、"明天聊"、"done"、"收工"、"拜了"）时，CC 应**先反问"要不要 /consolidate？"**——这是写在 vault CLAUDE.md 的硬规则。
+- transcript 由 SessionEnd hook 自动存档到 `<topic>/transcripts/`：
+  - `<时间戳>-<sessionid8>.jsonl` 无损备份
+  - `<时间戳>-<sessionid8>.md` Obsidian 可读渲染（user/assistant 对话流，thinking 折叠）
+- 如果某次没 /consolidate 就退出，下次 SessionStart hook 会扫到这件事并提示恢复流程：读那份 MD → /consolidate → 再进入新焦点。
+- Obsidian 的 git 插件会自动 commit vault，包括本次改动。
 
 ## 反模式（别这么干）
 

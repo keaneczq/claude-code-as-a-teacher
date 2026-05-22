@@ -3,7 +3,13 @@
     "allow": [
       "Bash(chmod +x /Users/keane/git/cc-chat/scripts/new-topic.sh && ls -la /Users/keane/git/cc-chat/scripts/)",
       "Bash(./scripts/new-topic.sh feature-engineering \"Feature Engineering\")",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:docs.claude.com)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(export all_proxy=http://127.0.0.1:7890 && curl -sL https://docs.anthropic.com/en/docs/claude-code/hooks -o /tmp/hooks.html && wc -c /tmp/hooks.html)",
+      "Bash(python3 << 'EOF'\nwith open\\('/tmp/hooks.txt'\\) as f:\n    s = f.read\\(\\)\nimport re\nchunks = re.split\\(r'\\(?<=[.!?]\\)\\\\s+', s\\)\nfor c in chunks:\n    if 'SessionEnd' in c or 'reason' in c.lower\\(\\)[:60]:\n        print\\(c.strip\\(\\)[:600]\\)\n        print\\('---'\\)\nEOF)",
+      "Bash(printf '{\"cwd\":\"/tmp\"}' | /Users/keane/git/cc-chat/scripts/session-start-context.sh\necho \"exit: $?\")",
+      "Skill(superpowers:brainstorming)"
     ]
   }
 }

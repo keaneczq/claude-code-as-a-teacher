@@ -4,6 +4,24 @@ This vault stores long-running learning topics and serious discussions. Each sub
 
 ## Core Principle
 
+**输出内容时，第一目的是充分说明、把事情说清楚说透，不要吝啬 token。**
+
+但"详细"不是凭感觉，靠下面两条硬规则落地，**优先级高于"响应简洁"的默认偏好**：
+
+**1. 对比双向展开**
+出现对比措辞（"A vs B"、"A 而不是 B"、"不像 X"、"和 …… 不同"、"区别于"、"常规做法是 …… 但 ……"）时，**对比的两边都要展开**——不能只解释主角、把陪衬当默认已知。哪怕陪衬看起来是"常规做法"，也用一两句说清它是什么、什么时候用、为什么这里不选它，再回到主角。
+
+> 例：讲"缺失独立成箱"时若提到"不填充、不 drop"，那"填充"和"drop"也要顺手解释清楚——常规做法是什么、为什么在 WoE 框架里不合适。不能默认用户已经知道这两种做法长什么样。
+
+**2. 段尾自检**
+每讲完一个 section / 一个独立论证回合（不是单条概念，是一个完整小段），收尾前先自查：**这段里提到了哪些没展开的术语 / 做法 / 假设？** 把它们列给用户：
+
+> "这段里我提到了 X、Y，但没展开。要不要现在补？"
+
+由用户决定取舍，不要替用户判断"这个应该已经懂了"。用户说不用，再进下一段。
+
+---
+
 **Transcripts are stream, insights are assets.**
 - Raw conversation → `transcripts/` (append-only archive, not for reading later)
 - Distilled knowledge → `concepts/`, `_map.md`, `chapters/`, etc.
@@ -31,6 +49,10 @@ Never load `transcripts/` into context unless the user explicitly asks.
 2. Read `_map.md` — it tells you the overall state.
 3. Read 1–2 relevant `concepts/*.md` only if the topic of focus requires.
 4. Do NOT read `transcripts/` unless user asks.
+5. **如果 SessionStart hook 注入了 "上次没整理" 的警告**，第一句先把这件事告诉用户、建议恢复流程：
+   - 询问是否恢复："要不要先读 `transcripts/<指定文件>.md` 然后 /consolidate，再进入今天的新焦点？"
+   - 用户同意 → 读那份 MD（不是 JSONL），执行标准 /consolidate 流程，再等用户给今天焦点
+   - 用户说"跳过/直接继续" → 不读 transcript，直接按 _index.md 的焦点开始
 
 ### During session
 **Auto-write (do this without asking):**
@@ -57,9 +79,22 @@ Never load `transcripts/` into context unless the user explicitly asks.
 4. Append unresolved items to `questions/open.md`.
 5. Update `_index.md` with "上次讨论到哪" for next session.
 
+### 隐式 /consolidate 触发：分支切换
+
+一个"知识点"（一个 section / 一个 chapter / 一组紧密相关的 concept）讲完，你给用户提下一步选项（"接下来可以走 A 还是 B 路线"），用户选定其中一条 → 这个选择本身就是"当前知识点已掌握"的确认信号，**等价于用户说了 /consolidate**。
+
+**进新分支之前**，先对刚结束的那一段执行完整 /consolidate 流程（concepts 落档 → 更新 _map.md → 写 _index.md handoff），然后再开口讲新分支的第一句。
+
+不要先一头扎进新分支然后"等会儿一起整理"——新分支的内容会和旧分支搅在一起，_map.md 的状态迁移也会失去时机。
+
+粒度区分：
+- 单个 concept 被确认（"懂了"、"对"、"OK"）→ auto-write 单个概念文件，**不**触发完整 /consolidate
+- section / 分支级别完成（用户选下一条路）→ **完整** /consolidate
+
 ### At session end
-- Remind user to run the transcript export script if it exists, or note that the conversation should be saved.
-- Update `_index.md` last line with a one-sentence handoff for next session.
+- transcript 由 SessionEnd hook 自动落档到 `transcripts/`（jsonl 无损 + md 可读，两份）。无需提醒用户手动导出。
+- 用户给出结束信号（"结束"、"明天聊"、"done"、"收工"、"拜了"、"下次再聊"）时，**先反问"要不要先 /consolidate？"**。除非用户上一句已明确说"不用整理直接结束"，否则等他确认整理与否再让 session 收尾。
+- /consolidate 完成后，把 `_index.md` 末尾的 handoff 写好——它是下一次 session 第一眼看到的东西。
 
 ## Concept File Structure
 
@@ -116,11 +151,6 @@ Sections can be omitted if not yet developed. Keep growing the file as understan
 ```
 
 When `_map.md` exceeds ~5k tokens, propose to the user that it be split or further distilled.
-
-## Token Discipline
-
-Per-session input target: ~10–15k tokens (map + index + 1–2 concepts).
-If you find yourself loading more, stop and ask the user whether to narrow focus.
 
 ## Skills Policy in Learning Mode
 
