@@ -49,6 +49,22 @@ This is the largest structural change versus the current setup (where a single v
 
 CC's normal cwd-based `CLAUDE.md` discovery loads the per-topic file automatically when the user runs `claude` from inside the topic directory, which is already the documented entry path (`docs/conventions.md`).
 
+**Vault-root signpost content** (the new `templates/vault-CLAUDE.md`, deployed once to `~/Keane/cc-chat/CLAUDE.md`):
+
+```markdown
+# cc-chat vault
+
+这里是多 topic / 多 mode 的根目录，不直接承载任何 topic 的对话规则。
+
+请进入具体 topic 目录后再启动 Claude Code：
+
+    cd ~/Keane/cc-chat/<topic-slug>
+    claude
+
+每个 topic 目录有自己的 `CLAUDE.md` 和 `.cc-mode`，决定该 topic 的运行模式。
+新建 topic：在仓库目录运行 `./scripts/new-topic.sh [--mode learning|personal] <slug> [title]`。
+```
+
 ### Repository layout changes
 
 ```
@@ -79,13 +95,13 @@ The old top-level `templates/topic-_map.md` and `templates/topic-_index.md` are 
 - Copies `templates/modes/<mode>/CLAUDE.md` → `<topic>/CLAUDE.md`.
 - Copies `templates/modes/<mode>/topic-_map.md` → `<topic>/_map.md` (with `{{TOPIC_TITLE}}` substitution).
 - Copies `templates/modes/<mode>/topic-_index.md` → `<topic>/_index.md` (same).
-- For `personal`: also copies `templates/modes/personal/topic-_profile.md` → `<topic>/_profile.md`.
+- For `personal`: also copies `templates/modes/personal/topic-_profile.md` → `<topic>/_profile.md` (with `{{TOPIC_TITLE}}` substitution).
 - Writes the mode name into `<topic>/.cc-mode`.
 - Creates only the directories the mode needs:
   - `learning`: `concepts/`, `chapters/`, `examples/`, `refs/`, `questions/`, `transcripts/` + `questions/open.md` placeholder (current behavior).
   - `personal`: `positions/`, `transcripts/`. No empty `concepts/`/`chapters/`/`examples/`/`refs/`/`questions/`.
 
-Vault-root `CLAUDE.md` is no longer auto-deployed by `new-topic.sh` — it is set up once during migration (see below).
+Vault-root `CLAUDE.md` is no longer unconditionally redeployed by `new-topic.sh` — it is set up once during migration (see below). The script does deploy it from `templates/vault-CLAUDE.md` if it is missing (fresh-install fallback, see the bullet list above).
 
 ## Architecture: Rule 0 — Objectivity, No Flattery
 
@@ -204,8 +220,32 @@ Personal Mode does **not** use the Learning Mode artifacts: `concepts/`, `chapte
 **Write discipline**:
 - User writes by hand. The user owns this file.
 - LLM may **propose** additions during `/consolidate` when it observes information that is (a) referenced repeatedly across subtopics and (b) stable. The LLM **must ask** before writing — never auto-append. (See [/consolidate](#consolidate-in-personal-mode).)
-- Soft cap ~3k tokens. When exceeded, the LLM raises this in the next session and proposes compaction or splitting.
+- Soft cap ~3k tokens. When exceeded, the LLM raises this in the next session and proposes compaction or splitting. The cap is enforced by the LLM in-session, not by the hook (see [Hook Changes](#hook-changes-mode-aware-session-start-contextsh)).
 - Use dense bulleted lists, not prose.
+
+**Initial template scaffolding** (`templates/modes/personal/topic-_profile.md`): the seed file ships with the section headings from "Content scope" above as empty placeholders, plus a one-line instruction at the top reminding the user that this is a hand-written seed. Concretely:
+
+```markdown
+# {{TOPIC_TITLE}} — Profile
+
+> 这个文件是关于"你是谁"的稳定背景信息。手写为主；LLM 在 /consolidate 时
+> 可能提议补充，但必须先问你。控制在 ~3k tokens 以内。
+
+## 关键经历
+<!-- 教育 / 职业 / 家庭 / 重大转折点；一行一条 -->
+
+## 价值观底色
+<!-- 一行一条；论证去 positions/worldview.md -->
+
+## 关键关系
+<!-- 家人，以及对你决策有显著影响的人 -->
+
+## 性格 / 思维倾向
+<!-- 自评 与 LLM 观察分别标注 -->
+
+## 当前生活状态快照
+<!-- 工作 / 城市 / 健康 / 财务粗轮廓——只到给建议需要的粒度 -->
+```
 
 **Rule 0 application**: When the LLM writes back to `_profile.md`, it records what it actually observed in the conversation, not what the user prefers to be recorded as. If the user self-describes one way but conversation evidence diverges, the LLM notes the divergence rather than smoothing it.
 
@@ -293,6 +333,19 @@ Revised rule for Personal Mode:
 - When the user says "look back at last session" or "find that conversation about X", the LLM directly reads the rendered `.md` transcript.
 - `相关 transcript` links inside `positions/*.md` are the indexed entry points.
 
+### Skills policy in Personal Mode
+
+Learning Mode's `CLAUDE.md` carries an explicit skills allowlist/blocklist (see current `templates/vault-CLAUDE.md` "Skills Policy" section). Personal Mode reuses the same blocklist almost wholesale — neither mode is a code/UI workflow — with these adjustments to the **useful** list:
+
+- `superpowers:brainstorming` — useful, same as Learning. When the user enters a new subtopic area and is still framing it, brainstorming applies before stance synthesis begins.
+- `superpowers:systematic-debugging` — **drop**. No code in Personal Mode.
+- `document-skills:doc-coauthoring` — useful, same as Learning. Occasionally helpful for refining `_profile.md` or a major `positions/<x>.md` rewrite when the user explicitly asks.
+- `matplotx-styling` — **drop**. No plots.
+
+The blocklist is identical to Learning Mode's: `simplify`, all `superpowers:test-driven-development` / `verification-before-completion` / `requesting-code-review` / `receiving-code-review` / `writing-plans` / `executing-plans` / `subagent-driven-development` / `finishing-a-development-branch` / `using-git-worktrees`, and all UI/frontend skills.
+
+Implementation: the Personal Mode `CLAUDE.md` carries a "Skills Policy in Personal Mode" section structurally parallel to Learning Mode's, with the adjustments above. When this spec is implemented, the implementer copies Learning Mode's section and applies the deltas — no further design needed.
+
 ### Deliberate omissions (YAGNI)
 
 - No `questions/open.md` — the user has stated open threads are not the focus; tracking them would create a parallel "in-flight" record that competes with `仍在演化` inside `positions/`.
@@ -345,8 +398,8 @@ Only `scripts/session-start-context.sh` is modified. `export-transcript.sh`, `re
 | Source | Cap | Notes |
 |---|---|---|
 | `CLAUDE.md` (per topic) | ~3k | Loaded by CC's normal cwd-based discovery, not by hook |
-| `_profile.md` | ~3k | Hard cap; LLM proposes compaction in-session if exceeded |
-| `positions/<focus>.md` | ~5k | Hard cap; LLM proposes split if exceeded |
+| `_profile.md` | ~3k | Soft cap; LLM proposes compaction in-session if exceeded |
+| `positions/<focus>.md` | ~5k | Soft cap; LLM proposes split in-session if exceeded |
 | `_index.md` handoff (tail 30 lines) | ~0.5k | Same as Learning Mode |
 | Optional WARNING / mode-invalid notice | <0.1k | |
 | **Total at session start** | **~12k** | Same order of magnitude as Learning Mode's 10–15k target |
@@ -488,7 +541,7 @@ The script:
 - Writes `personal` into `.cc-mode`.
 - Creates `transcripts/` and `positions/` only.
 - Does **not** create `concepts/`, `chapters/`, `examples/`, `refs/`, `questions/`.
-- Does **not** redeploy the vault-root `CLAUDE.md` (that was set up once during migration; the new vault-root signpost is mode-agnostic).
+- Does **not** redeploy the vault-root `CLAUDE.md` if it already exists. If the vault-root `CLAUDE.md` is missing (fresh-install case), the script deploys it from `templates/vault-CLAUDE.md` — this preserves the existing safety-net behavior of `new-topic.sh` and ensures a fresh vault always has a usable signpost.
 
 After creation, the user hand-writes initial `_profile.md` content. This is a seed step — the LLM does not write `_profile.md` on the user's behalf (same discipline as `_map.md` seeding in Learning Mode).
 
