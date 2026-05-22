@@ -56,6 +56,17 @@ test_personal_mode() {
                                                      || fail "personal: chapters/ wrongly created"
   grep -q "Personal" "$topic/_profile.md"            && ok "personal: _profile title substituted" \
                                                      || fail "personal: _profile title not substituted"
+  [[ -f "$topic/_map.md" ]] && grep -q "Personal" "$topic/_map.md" \
+                                                     && ok "personal: _map.md created + title substituted" \
+                                                     || fail "personal: _map.md missing or title not substituted"
+  [[ -f "$topic/_index.md" ]]                        && ok "personal: _index.md created" \
+                                                     || fail "personal: _index.md missing"
+  [[ ! -d "$topic/examples" ]]                       && ok "personal: examples/ NOT created" \
+                                                     || fail "personal: examples/ wrongly created"
+  [[ ! -d "$topic/refs" ]]                           && ok "personal: refs/ NOT created" \
+                                                     || fail "personal: refs/ wrongly created"
+  [[ ! -d "$topic/questions" ]]                      && ok "personal: questions/ NOT created" \
+                                                     || fail "personal: questions/ wrongly created"
   rm -rf "$vault"
 }
 
@@ -74,9 +85,25 @@ test_invalid_mode() {
   rm -rf "$vault"
 }
 
+# Test 4: --mode placed after positional args → script rejects it (Fix 1 guard)
+test_mode_after_slug_rejected() {
+  local vault rc
+  vault=$(mk_vault)
+  set +e
+  CC_CHAT_VAULT="$vault" "$SCRIPT" foo "Foo" --mode personal >/dev/null 2>&1
+  rc=$?
+  set -e
+  [[ $rc -ne 0 ]]                                    && ok "extra arg: exits non-zero ($rc)" \
+                                                     || fail "extra arg: exited 0 (silent ignore)"
+  [[ ! -d "$vault/foo" ]]                            && ok "extra arg: no topic dir created" \
+                                                     || fail "extra arg: topic dir created"
+  rm -rf "$vault"
+}
+
 test_default_mode
 test_personal_mode
 test_invalid_mode
+test_mode_after_slug_rejected
 
 echo
 echo "Passed: $PASS  Failed: $FAIL"

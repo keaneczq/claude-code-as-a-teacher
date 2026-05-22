@@ -51,6 +51,12 @@ if [[ ! "$SLUG" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
   exit 1
 fi
 
+# After --mode is consumed via shift, $1=slug and $2=title. Anything else is a mistake.
+if [[ $# -gt 2 ]]; then
+  echo "Error: unexpected extra argument: $3 (did you put --mode after the slug?)" >&2
+  exit 1
+fi
+
 # --- per-mode templates dir ---
 TEMPLATES_DIR="$TEMPLATES/modes/$MODE"
 if [[ ! -d "$TEMPLATES_DIR" ]]; then
