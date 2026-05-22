@@ -143,7 +143,7 @@ cd ~/git/cc-chat
 想改 topic 模板（`_map.md` / `_index.md` / personal 的 `_profile.md`）时：
 - 只影响**新建的 topic**。已有的 topic 是手写演化出来的产物，不应被覆盖。
 
-**在添加新 mode 时**：先在 `templates/modes/<new-mode>/` 准备好模板，再在 `scripts/session-start-context.sh` 的 dispatcher 里加一个 `case` 分支，最后才让 `read_mode` 接受新 mode 名（顺序很重要——`read_mode` 先放行而 dispatcher 没准备好的话，请求会被静默 fallback 到 learning）。
+**在添加新 mode 时**：先在 `templates/modes/<new-mode>/` 准备好模板，再在 `scripts/session-start-context.sh` 的 dispatcher 里加一个 `case` 分支，让 `read_mode` 接受新 mode 名（顺序很重要——`read_mode` 先放行而 dispatcher 没准备好的话，请求会被静默 fallback 到 learning），最后在 `scripts/new-topic.sh` 的 `--mode` 校验 `case` 里加上新 mode（否则 `new-topic.sh --mode <new>` 会拒绝创建）。
 
 ## 迁移到多模式
 
