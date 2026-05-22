@@ -29,6 +29,70 @@ build_context_learning() {
   fi
 }
 
+# Reads <topic>/.cc-mode. Echoes the trimmed mode name on stdout.
+# Echoes "learning" if the file is missing.
+# Echoes "learning" + emits a stderr warning if the value is unknown.
+# Args: $1 = topic_dir
+# Stdout: mode name (always one of: learning, personal)
+# Stderr (optional): WARN_INVALID_MODE=<raw> — for the dispatcher to attach to systemMessage
+read_mode() {
+  local topic_dir="$1"
+  local f="$topic_dir/.cc-mode"
+  if [[ ! -f "$f" ]]; then
+    echo learning
+    return
+  fi
+  local raw
+  raw=$(tr -d '[:space:]' < "$f")
+  case "$raw" in
+    learning|personal) echo "$raw" ;;
+    *) echo "WARN_INVALID_MODE=$raw" >&2; echo learning ;;
+  esac
+}
+
+# Builds the additionalContext for Personal Mode.
+# Injects: _index handoff (tail-30) + optional warning + full _profile.md + full positions/<focus>.md.
+# Args: $1 = topic_dir, $2 = HANDOFF, $3 = WARNING (may be empty)
+# Stdout: additionalContext string.
+# Stderr (optional): WARN_MISSING_FOCUS=<relpath> if focus is named but the file is missing.
+build_context_personal() {
+  local topic_dir="$1" handoff="$2" warning="${3:-}"
+  printf '## Handoff from _index.md\n\n%s' "$handoff"
+  if [[ -n "$warning" ]]; then
+    printf '\n\n## 上次整理状态\n\n%s' "$warning"
+  fi
+  if [[ -f "$topic_dir/_profile.md" ]]; then
+    printf '\n\n## _profile.md\n\n'
+    cat "$topic_dir/_profile.md"
+  fi
+  # Find first "- positions/<name>" under "## 焦点子主题", outside HTML comment blocks.
+  local focus
+  focus=$(awk '
+    BEGIN { in_focus=0; in_comment=0 }
+    /<!--/ { in_comment=1 }
+    /-->/  { in_comment=0; next }
+    /^## 焦点子主题/ { in_focus=1; next }
+    in_focus && /^## / { exit }
+    in_focus && !in_comment && /^- positions\// {
+      sub(/^- positions\//, "")
+      sub(/[[:space:]]+$/, "")
+      sub(/\.md$/, "")
+      sub(/[[:space:]]*#.*/, "")
+      print
+      exit
+    }
+  ' "$topic_dir/_index.md")
+  if [[ -n "$focus" ]]; then
+    local fp="$topic_dir/positions/$focus.md"
+    if [[ -f "$fp" ]]; then
+      printf '\n\n## positions/%s.md (focus)\n\n' "$focus"
+      cat "$fp"
+    else
+      echo "WARN_MISSING_FOCUS=positions/$focus.md" >&2
+    fi
+  fi
+}
+
 VAULT_ROOT="${CC_CHAT_VAULT:-$HOME/Keane/cc-chat}"
 
 # Read hook JSON from stdin to discover cwd. Fallback to $PWD if parsing fails.
@@ -83,7 +147,22 @@ fi
 HANDOFF="$(tail -n 30 "$INDEX")"
 HANDOFF_LINES="$(printf '%s\n' "$HANDOFF" | wc -l | tr -d ' ')"
 
-CONTEXT="$(build_context_learning "$CWD" "$HANDOFF" "$WARNING")"
+# Read mode (with stderr → temp file to capture WARN_INVALID_MODE).
+MODE_WARN_FILE=$(mktemp)
+MODE=$(read_mode "$CWD" 2>"$MODE_WARN_FILE")
+MODE_WARN=$(cat "$MODE_WARN_FILE"); rm -f "$MODE_WARN_FILE"
+
+# Dispatch by mode (with stderr → temp file to capture build-time warnings).
+CTX_WARN_FILE=$(mktemp)
+case "$MODE" in
+  personal)
+    CONTEXT="$(build_context_personal "$CWD" "$HANDOFF" "$WARNING" 2>"$CTX_WARN_FILE")"
+    ;;
+  *)
+    CONTEXT="$(build_context_learning "$CWD" "$HANDOFF" "$WARNING" 2>"$CTX_WARN_FILE")"
+    ;;
+esac
+CTX_WARN=$(cat "$CTX_WARN_FILE"); rm -f "$CTX_WARN_FILE"
 
 # --- 3. Build the user-visible systemMessage ---
 # Concise, single-line. Visible in the terminal when CC starts.
@@ -91,6 +170,14 @@ if [[ -n "$WARNING" ]]; then
   SYSMSG="📌 cc-chat: 已注入 [${TOPIC}] handoff (${HANDOFF_LINES} 行)  ⚠ 上次未 /consolidate，建议恢复 transcripts/${LAST_MD_NAME}"
 else
   SYSMSG="📌 cc-chat: 已注入 [${TOPIC}] handoff (${HANDOFF_LINES} 行)"
+fi
+
+# Append mode-related warnings, if any.
+if [[ "$MODE_WARN" =~ WARN_INVALID_MODE=(.*) ]]; then
+  SYSMSG="${SYSMSG}  ⚠ .cc-mode 值无效（\"${BASH_REMATCH[1]}\"），按 learning 处理"
+fi
+if [[ "$CTX_WARN" =~ WARN_MISSING_FOCUS=(.*) ]]; then
+  SYSMSG="${SYSMSG}  ⚠ 焦点文件不存在: ${BASH_REMATCH[1]}"
 fi
 
 # --- 4. Emit JSON for CC to consume ---
