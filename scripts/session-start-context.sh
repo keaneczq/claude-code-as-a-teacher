@@ -15,6 +15,20 @@
 
 set -uo pipefail
 
+# Builds the additionalContext payload for Learning Mode.
+# Args: $1 = topic_dir (unused for now; reserved for parity with build_context_personal in Task 8)
+#       $2 = HANDOFF (already read by caller — the tail-30 of _index.md)
+#       $3 = WARNING (may be empty)
+# Stdout: the additionalContext string.
+# This refactor preserves byte-for-byte the original inline composition. Do NOT change the wire format.
+build_context_learning() {
+  local topic_dir="$1" handoff="$2" warning="${3:-}"
+  printf '## Handoff from _index.md\n\n%s' "$handoff"
+  if [[ -n "$warning" ]]; then
+    printf '\n\n## 上次整理状态\n\n%s' "$warning"
+  fi
+}
+
 VAULT_ROOT="${CC_CHAT_VAULT:-$HOME/Keane/cc-chat}"
 
 # Read hook JSON from stdin to discover cwd. Fallback to $PWD if parsing fails.
@@ -69,17 +83,7 @@ fi
 HANDOFF="$(tail -n 30 "$INDEX")"
 HANDOFF_LINES="$(printf '%s\n' "$HANDOFF" | wc -l | tr -d ' ')"
 
-CONTEXT="## Handoff from _index.md
-
-$HANDOFF"
-
-if [[ -n "$WARNING" ]]; then
-  CONTEXT="$CONTEXT
-
-## 上次整理状态
-
-$WARNING"
-fi
+CONTEXT="$(build_context_learning "$CWD" "$HANDOFF" "$WARNING")"
 
 # --- 3. Build the user-visible systemMessage ---
 # Concise, single-line. Visible in the terminal when CC starts.
