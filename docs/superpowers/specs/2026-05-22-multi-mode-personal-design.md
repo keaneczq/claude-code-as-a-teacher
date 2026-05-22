@@ -35,6 +35,7 @@ The first non-learning mode chosen is **Personal Mode**, because among the four 
 Every topic directory in the vault carries a single-line text file `.cc-mode` at its root, whose content is the mode name (`learning` | `personal`). This sentinel is the single source of truth for mode routing.
 
 Why a sentinel file:
+
 - A single 1-line read per `SessionStart` hook invocation; no parsing needed.
 - Robust against user editing of `_index.md` (which a frontmatter-based scheme would not be).
 - Avoids breaking existing vault paths (which a directory-based scheme like `vault/learning/<topic>/` would force).
@@ -207,6 +208,7 @@ Personal Mode does **not** use the Learning Mode artifacts: `concepts/`, `chapte
 **Purpose**: Let the LLM know who the user is from the first turn of every session, so that advice across subtopics (parenting, worldview, life decisions) is grounded in the user's stable identity rather than being re-bootstrapped each time.
 
 **Content scope** (input-side context, used to inform discussion across all subtopics):
+
 - Key life experiences (education / career / family / inflection points)
 - Value commitments (one-line each; argumentation lives in `positions/worldview.md`)
 - Key relationships (family, people whose views materially affect the user's decisions)
@@ -214,10 +216,12 @@ Personal Mode does **not** use the Learning Mode artifacts: `concepts/`, `chapte
 - Current life-state snapshot (work, city, health, financial outline — only at the granularity needed for advice)
 
 **Out of scope here**:
+
 - Stance on a specific subtopic → that goes in `positions/<subtopic>.md`.
 - One-off events or emotions → those live in transcripts.
 
 **Write discipline**:
+
 - User writes by hand. The user owns this file.
 - LLM may **propose** additions during `/consolidate` when it observes information that is (a) referenced repeatedly across subtopics and (b) stable. The LLM **must ask** before writing — never auto-append. (See [/consolidate](#consolidate-in-personal-mode).)
 - Soft cap ~3k tokens. When exceeded, the LLM raises this in the next session and proposes compaction or splitting. The cap is enforced by the LLM in-session, not by the hook (see [Hook Changes](#hook-changes-mode-aware-session-start-contextsh)).
@@ -281,6 +285,7 @@ worth lifting to _profile.md. LLM proposes; user decides.>
 ```
 
 **Write discipline**:
+
 - A subtopic file is created the first time the user clearly enters that topic. The LLM proposes the filename; user can rename or veto.
 - `当前立场` is **rewritten** (not appended) each `/consolidate`; the previous version moves into `演化轨迹`.
 - If the LLM wants to change `当前立场` but the user disagrees: keep the user's version in `当前立场`, record the disagreement in `演化轨迹`. Never smooth a disagreement.
@@ -329,6 +334,7 @@ The `焦点子主题` section is the **contract** between `_index.md` and the Se
 Learning Mode's "default: do not load `transcripts/`" rule **does not apply** in Personal Mode. The user has stated that the full Q&A record itself is valuable and will be re-read.
 
 Revised rule for Personal Mode:
+
 - Hook still does not auto-inject transcript files (token protection).
 - When the user says "look back at last session" or "find that conversation about X", the LLM directly reads the rendered `.md` transcript.
 - `相关 transcript` links inside `positions/*.md` are the indexed entry points.
@@ -395,14 +401,14 @@ Only `scripts/session-start-context.sh` is modified. `export-transcript.sh`, `re
 
 ### Token budget (Personal Mode session start)
 
-| Source | Cap | Notes |
-|---|---|---|
-| `CLAUDE.md` (per topic) | ~3k | Loaded by CC's normal cwd-based discovery, not by hook |
-| `_profile.md` | ~3k | Soft cap; LLM proposes compaction in-session if exceeded |
-| `positions/<focus>.md` | ~5k | Soft cap; LLM proposes split in-session if exceeded |
-| `_index.md` handoff (tail 30 lines) | ~0.5k | Same as Learning Mode |
-| Optional WARNING / mode-invalid notice | <0.1k | |
-| **Total at session start** | **~12k** | Same order of magnitude as Learning Mode's 10–15k target |
+| Source                                 | Cap      | Notes                                                    |
+| -------------------------------------- | -------- | -------------------------------------------------------- |
+| `CLAUDE.md` (per topic)                | ~3k      | Loaded by CC's normal cwd-based discovery, not by hook   |
+| `_profile.md`                          | ~3k      | Soft cap; LLM proposes compaction in-session if exceeded |
+| `positions/<focus>.md`                 | ~5k      | Soft cap; LLM proposes split in-session if exceeded      |
+| `_index.md` handoff (tail 30 lines)    | ~0.5k    | Same as Learning Mode                                    |
+| Optional WARNING / mode-invalid notice | <0.1k    |                                                          |
+| **Total at session start**             | **~12k** | Same order of magnitude as Learning Mode's 10–15k target |
 
 ### Implementation note
 
@@ -411,6 +417,7 @@ Current `session-start-context.sh` is 107 lines. Estimated post-change: ~150 lin
 ### Verification
 
 Manual fixture-based test, no test framework needed:
+
 - Fixture A: `feature-engineering/` (no `.cc-mode`) → expect Learning behavior, `additionalContext` matches current output exactly.
 - Fixture B: a fresh `personal/` topic with valid `.cc-mode=personal`, populated `_profile.md`, populated `positions/foo.md`, and `_index.md` pointing focus to `foo` → expect injected context to include all three.
 - Fixture C: a topic with `.cc-mode=garbage` → expect Learning fallback plus `systemMessage` warning.
@@ -535,6 +542,7 @@ All four checks passing = migration succeeded.
 ```
 
 The script:
+
 - Validates `--mode` value (must be `learning` or `personal`).
 - Copies `templates/modes/personal/CLAUDE.md` → topic root.
 - Instantiates `_map.md`, `_index.md`, `_profile.md` from `templates/modes/personal/`.
