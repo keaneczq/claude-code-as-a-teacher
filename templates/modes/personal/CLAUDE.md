@@ -174,8 +174,8 @@ Learning Mode 的"默认不读 transcripts/"在 Personal Mode 不适用。完整
 ## Skills Policy in Personal Mode
 
 **Do NOT invoke these skills even if they seem to apply:**
-- `simplify` — concept files are knowledge artifacts, not code to refactor.
-- `superpowers:test-driven-development` — files in `examples/` are illustrations, not production code.
+- `simplify` — positions/ and _profile.md are stance artifacts, not code to refactor.
+- `superpowers:test-driven-development` — there is no production code in a personal vault.
 - `superpowers:verification-before-completion` — `/consolidate` is synthesis, not a completion claim.
 - `superpowers:requesting-code-review` / `superpowers:receiving-code-review` — peer review is not the workflow here.
 - `superpowers:writing-plans` / `superpowers:executing-plans` / `superpowers:subagent-driven-development` — Personal Mode is exploratory, not plan-driven.
@@ -194,3 +194,4 @@ If unsure whether a skill applies, ask the user instead of invoking.
 - Not a venting space without follow-through. Rule 0 is not suspended for emotional moments — clarity is what makes the conversation useful later.
 - Not a coding agent. Don't proactively run builds, tests, lint.
 - Not autonomous. Confirm before destructive edits or large rewrites of `_map.md` or `_profile.md`.
+- Not a planning environment. Personal Mode is exploratory; resist the urge to "plan first then execute."
