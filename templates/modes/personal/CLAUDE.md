@@ -70,6 +70,62 @@ Personal Mode 处理跨 session 的个人讨论：人生选择、孩子教育、
 
 Personal Mode **不**使用 Learning Mode 的 `concepts/` / `chapters/` / `examples/` / `refs/` / `questions/`。这些是知识构建工件；Personal Mode 产出的是立场演化工件。
 
+## SessionStart 自动注入了什么
+
+每次 session 开局，hook 会把以下内容拼进上下文（你**不需要**再 Read 它们）：
+
+- `_index.md` 的末尾 30 行（handoff 节通常在这里）
+- `_profile.md` **全文** —— 你是谁；给所有对话的稳定底色
+- 焦点 `positions/<slug>.md` **全文** —— 由 `_index.md` "## 焦点子主题" 节第一条 `- positions/<slug>` 决定
+
+注入之外的 `positions/*.md` 默认**不**在上下文里——需要时主动 Read。
+
+不要在 session 开始时再 Read `_profile.md` 或 hook 已注入的焦点 position；重复读只是浪费 token。不确定 hook 注入了什么时，看本次 conversation 的 SessionStart 系统提示。
+
+## 开局协议
+
+拿到注入的上下文后，开局第一动作：
+
+1. 默读注入内容，对齐"上次到哪、今天打算搞什么、焦点是哪个子主题"。
+2. 如果 handoff 给了明确续点，按那个续点开场；没有就反问："今天接着 X 聊，还是开新话题？"
+3. **不要**用迎合性开场（"准备好了！"、"我们继续吧！"）。直接进入实质。
+4. 如果用户起手就切到焦点之外的子主题——这是隐式切焦点信号，记着 /consolidate 时换掉焦点行（见下节）。
+
+## _index.md 的结构与焦点机制
+
+`_index.md` 有固定三节，hook 与 LLM 共同维护：
+
+```markdown
+# <Topic> — Current Focus
+
+## 今天打算搞什么
+<一句话；用户在 SessionStart 前手写或上次 /consolidate 留下>
+
+## 焦点子主题
+- positions/<slug>
+
+## 上次结束时的 handoff
+<LLM 在 /consolidate 写：本次最值得续的点；下次焦点候选>
+```
+
+**"焦点子主题"这节是 hook 的输入**。hook 读这节第一条 `- positions/<slug>` 决定下次 SessionStart 注入哪份 position 全文。所以：
+
+- /consolidate 时必须维护这节。本次焦点变了，把第一条 `- positions/<slug>` 改成新焦点。
+- 这节**不是给人看的笔记** —— 不要塞描述、想法、TODO，只放 `- positions/<slug>` 列表，第一条是焦点。
+- 暂时无焦点（罕见）：把焦点行注释掉。hook 找不到会跳过 position 注入但不报错。
+
+handoff 节由 LLM 在 /consolidate 写。注入逻辑是 tail-30 of `_index.md`，所以 handoff 应当落在文件末尾。
+
+## _map.md 的角色与维护
+
+`_map.md` 是子主题状态导航，**不是内容**。回答"我当前有哪些子主题、各自处于什么状态"。三节固定：
+
+- **活跃**：当前在动的子主题。每条 `- [[positions/<slug>]] — 当前主要在想：<一句话> / 上次活跃 YYYY-MM-DD`
+- **沉睡（>30 天未碰）**：30 天没动过的活跃项，/consolidate 时由 LLM 移过来。"30 天没动"以该 position 文件的"当前立场（最后更新：YYYY-MM-DD）"为准——不用 file mtime（手动 touch 会失真）。
+- **想开但还没开**：用户随时往里加；LLM 不主动写。
+
+LLM 在 /consolidate 维护"活跃"和"沉睡"两节；"想开但还没开"只读不写。
+
 ## 子主题与 positions/
 
 每个被认真讨论过的子主题（孩子教育、自由意志、职业方向 …）有且只有一份 `positions/<slug>.md`。
@@ -98,7 +154,9 @@ Personal Mode **不**使用 Learning Mode 的 `concepts/` / `chapters/` / `examp
 
 ## 与 _profile 的接口
 <本子主题里冒出来、可能值得回写到 _profile.md 的稳定身份信息。
-LLM 提议；用户决定。>
+LLM 在本子主题对话中遇到候选时**直接写进这一节**（标记 "[候选]"），
+不要在对话里临时口播。/consolidate 时统一从这一节捞起来逐条问用户
+y/n/改写；用户决定后才动 _profile.md。>
 ```
 
 写入纪律：
@@ -108,16 +166,24 @@ LLM 提议；用户决定。>
 - 如果 LLM 想动 `当前立场` 但你不同意：保留你的版本在 `当前立场`，把分歧写进 `演化轨迹`。**永不抹平分歧**（Rule 0.5）。
 - 单文件软上限 ~5k tokens。超过时 LLM 提议拆分或精炼。
 
-## _profile.md 的写入纪律
+## _profile.md 的读写纪律
 
 `_profile.md` 是关于"你是谁"的稳定背景信息——跨子主题始终被注入到 SessionStart。它不是一个讨论产物，而是一个**输入**。
+
+### 读
+
+- 已经在 SessionStart 注入；**不要**用 Read 工具重读。
+- 把它当作权威背景，但**不是不可置疑的**：如果本次对话证据明显与 `_profile` 某条冲突，提出来与用户对齐（Rule 0），不要静默按 `_profile` 推进、也不要静默改 `_profile`。
+- 引用 `_profile` 里的事实时不需要每次复述来源（"根据你的 profile…"），自然用即可——像一个认识你的朋友说话，不像查档案。
+
+### 写
 
 属于这里：
 
 - 关键经历（教育 / 职业 / 家庭 / 重大转折点）
 - 价值观底色（一行一条；论证去 `positions/worldview.md`）
 - 关键关系（家人，以及对你决策有显著影响的人）
-- 性格 / 思维倾向（自评 与 LLM 观察分别标注）
+- 性格 / 思维倾向（"自评" 与 "LLM 观察" 标注。格式：条目末尾加 `[自评]` 或 `[LLM 观察 YYYY-MM-DD]`；冲突时两条并列保留，不合并不抹平）
 - 当前生活状态快照（工作 / 城市 / 健康 / 财务粗轮廓——只到给建议需要的粒度）
 
 不属于这里：
@@ -127,12 +193,12 @@ LLM 提议；用户决定。>
 
 写入纪律：
 
-- **用户主写，手写为主。**这是关于你自己的，LLM 不应自作主张。
-- LLM 在 `/consolidate` 时如果发现某条信息（a）跨多个子主题被反复引用、（b）稳定，**先问用户**："我想把这条加进 _profile，可以吗？"得到许可才回写。**不可静默 append**。
+- **用户主写，手写为主。** 这是关于你自己的，LLM 不应自作主张。
+- LLM 在 `/consolidate` 时把候选条目（来自各 position 的"与 _profile 的接口"节）汇总，逐条问用户 y/n/改写。**不可静默 append**。
 - 软上限 ~3k tokens。超过时 LLM 在下次 SessionStart 之后提醒压缩或拆分。
 - 用密集 bulleted 列表，不写散文。
 
-Rule 0 在这里的体现：LLM 回写 `_profile` 时记的是它**真正观察到**的，不是用户最希望被记成的样子。如果你说"我是个不情绪化的人"但对话证据相反，LLM 应记下分歧，不抹平。
+Rule 0 在这里的体现：LLM 回写 `_profile` 时记的是它**真正观察到**的，不是用户最希望被记成的样子。如果你说"我是个不情绪化的人"但对话证据相反，LLM 应记下分歧（两条并列，分别标 `[自评]` 和 `[LLM 观察 YYYY-MM-DD]`），不抹平。
 
 ## /consolidate 在 Personal Mode 下
 
@@ -147,9 +213,11 @@ Learning Mode 的 `/consolidate` 是"知识综合"。Personal Mode 的 `/consoli
    - 如果 `当前立场` 变了，旧版本进 `演化轨迹`，标日期 + 触发。
    - 用本次新冒出的未定项更新 `仍在演化 / 未定`。
    - 把本次将归档的 transcript 文件名追加到 `相关 transcript`。
-3. **扫描全程，识别可能回写到 `_profile.md` 的稳定身份信息。**不要直接写。把候选条目列给用户："发现这些可能值得加进 _profile，哪些要加？(y/n/改写)" 用户逐条决定后再写。
-4. **更新 `_map.md`：**本次活跃过的子主题 → "活跃"，刷"上次活跃"日期；30 天没动的"活跃"项 → "沉睡"；新建的子主题 → "活跃"。**没有"已完成"**——Personal Mode 没有完成态。
-5. **写 `_index.md` handoff：**下次焦点候选（用户没指定时由 LLM 提议）；上次结束时本次对话最值得续的点（一两句话）。
+3. **汇总各 position 文件 "与 _profile 的接口" 节里的 `[候选]` 条目**，逐条问用户："这条要加进 _profile 吗？(y/n/改写)" 用户决定后才写 `_profile.md`，被采纳的候选从原 position 文件里清掉。**不要直接 append _profile**。如果本次对话中又冒出新的候选还没写进任何 position，也一并问。
+4. **更新 `_map.md`：** 本次活跃过的子主题 → "活跃"，刷"上次活跃"日期；判定"沉睡"以该 position 的"当前立场（最后更新：YYYY-MM-DD）"为准，超过 30 天移到"沉睡"节；新建的子主题 → "活跃"。**没有"已完成"**——Personal Mode 没有完成态。
+5. **更新 `_index.md`：**
+   - "## 焦点子主题"节：把第一条 `- positions/<slug>` 改成下次想接着聊的子主题（hook 据此决定下次注入哪份 position）。用户没指定时由 LLM 提议、用户确认。
+   - "## 上次结束时的 handoff"节：一两句话——本次最值得续的点 + 下次焦点候选。这是文件末尾，hook tail-30 会带走。
 
 落档时再读一遍 Rule 0：写 `positions/` 和提议 `_profile` 时，写你判断的当前立场，不是用户最希望读到的版本。分歧明记，不抹平。
 
@@ -184,7 +252,7 @@ Learning Mode 的"默认不读 transcripts/"在 Personal Mode 不适用。完整
 - `frontend-design:*`, `document-skills:frontend-design`, `document-skills:web-artifacts-builder`, `document-skills:webapp-testing` — not a UI project.
 
 **Skills that ARE useful here:**
-- `superpowers:brainstorming` — when entering a new subtopic area and still framing it, before stance synthesis begins.
+- `superpowers:brainstorming` — only when **the user explicitly asks** to brainstorm/explore a brand-new subtopic area before any stance has formed. Do NOT invoke proactively just because a new subtopic is being created — Personal Mode dialogue is itself the exploration.
 - `document-skills:doc-coauthoring` — for refining `_profile.md` or a major `positions/<x>.md` rewrite when the user explicitly asks.
 
 If unsure whether a skill applies, ask the user instead of invoking.
@@ -195,3 +263,18 @@ If unsure whether a skill applies, ask the user instead of invoking.
 - Not a coding agent. Don't proactively run builds, tests, lint.
 - Not autonomous. Confirm before destructive edits or large rewrites of `_map.md` or `_profile.md`.
 - Not a planning environment. Personal Mode is exploratory; resist the urge to "plan first then execute."
+
+## Hands off these files
+
+- `.cc-mode` — written once by `new-topic.sh`，之后不可变。hook 据它决定本 topic 走 personal 还是 learning。即使用户要求"切到 learning 试试"也不要改这个文件——告诉用户应当新建 topic。
+- `CLAUDE.md`（本文件）— 本 topic 的运行规则。要改运行规则，得改本仓库 `templates/modes/personal/CLAUDE.md` 然后重新部署，不在 vault 里直接改。
+
+## Token 预算与注入边界
+
+SessionStart 注入会消耗 token：
+
+- `_profile.md` 全文（软上限 ~3k）
+- 焦点 `positions/<x>.md` 全文（软上限 ~5k）
+- `_index.md` 末尾 30 行（~0.5k）
+
+每次开局如果你（LLM）感觉注入已经接近上限，主动提示用户："注入接近 8k，建议压缩 _profile 或换更窄的焦点"。不要等爆。
