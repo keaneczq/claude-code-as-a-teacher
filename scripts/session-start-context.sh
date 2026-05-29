@@ -122,12 +122,23 @@ TOPIC="$(basename "$CWD")"
 WARNING=""
 LAST_MD_NAME=""
 if [[ -d "$TX_DIR" ]]; then
-  LAST_JSONL="$(ls -t "$TX_DIR"/*.jsonl 2>/dev/null | head -1)"
+  RECENT_JSONLS="$(ls -t "$TX_DIR"/*.jsonl 2>/dev/null | head -2)"
+  LAST_JSONL="$(echo "$RECENT_JSONLS" | head -1)"
+  PREV_JSONL="$(echo "$RECENT_JSONLS" | sed -n '2p')"
   if [[ -n "$LAST_JSONL" ]]; then
+    CONSOLIDATED=0
     if grep -qE '/consolidate|整理一下|总结一下|consolidate now|归档一下' "$LAST_JSONL"; then
       CONSOLIDATED=1
-    else
-      CONSOLIDATED=0
+    elif [[ -n "$PREV_JSONL" ]]; then
+      # If the latest JSONL is small (< 50KB) and the previous one has
+      # consolidate evidence with _index.md updated after it, treat the
+      # latest as a post-consolidate artifact (e.g. /clear residue).
+      LAST_SIZE=$(stat -f "%z" "$LAST_JSONL" 2>/dev/null || stat -c "%s" "$LAST_JSONL" 2>/dev/null)
+      if (( LAST_SIZE < 51200 )) \
+         && grep -qE '/consolidate|整理一下|总结一下|consolidate now|归档一下' "$PREV_JSONL" \
+         && [[ "$INDEX" -nt "$PREV_JSONL" ]]; then
+        CONSOLIDATED=1
+      fi
     fi
     if [[ "$INDEX" -nt "$LAST_JSONL" ]]; then
       INDEX_FRESH=1

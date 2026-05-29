@@ -9,7 +9,17 @@
       "Bash(export all_proxy=http://127.0.0.1:7890 && curl -sL https://docs.anthropic.com/en/docs/claude-code/hooks -o /tmp/hooks.html && wc -c /tmp/hooks.html)",
       "Bash(python3 << 'EOF'\nwith open\\('/tmp/hooks.txt'\\) as f:\n    s = f.read\\(\\)\nimport re\nchunks = re.split\\(r'\\(?<=[.!?]\\)\\\\s+', s\\)\nfor c in chunks:\n    if 'SessionEnd' in c or 'reason' in c.lower\\(\\)[:60]:\n        print\\(c.strip\\(\\)[:600]\\)\n        print\\('---'\\)\nEOF)",
       "Bash(printf '{\"cwd\":\"/tmp\"}' | /Users/keane/git/cc-chat/scripts/session-start-context.sh\necho \"exit: $?\")",
-      "Skill(superpowers:brainstorming)"
+      "Skill(superpowers:brainstorming)",
+      "Bash(mkdir -p /Users/keane/git/cc-chat/docs/superpowers/specs)",
+      "Skill(superpowers:writing-plans)",
+      "Bash(mkdir -p /Users/keane/git/cc-chat/docs/superpowers/plans)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Bash(./tests/test-session-start-context.sh)",
+      "Bash(echo \"---EXIT: $?---\")",
+      "Bash(./tests/test-new-topic.sh)",
+      "Bash(echo \"---NEW-TOPIC EXIT: $?---\")",
+      "Bash(echo \"---HOOK EXIT: $?---\")",
+      "Bash(grep *)"
     ]
   }
 }
