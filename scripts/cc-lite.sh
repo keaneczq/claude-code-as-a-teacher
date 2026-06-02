@@ -10,5 +10,8 @@
 #
 # Source this file from ~/.bashrc and ~/.zshrc.
 cc-lite() {
-  command claude --settings "$HOME/.claude/cc-chat-lite.json" "$@"
+  local overlay="$HOME/.claude/cc-chat-lite.json"
+  printf '\033[33m⚡ cc-lite 轻量模式\033[0m：dev 插件已禁用 + skill listing 已压缩\n'
+  printf '   overlay 配置：%s\n' "$overlay"
+  command claude --settings "$overlay" "$@"
 }
