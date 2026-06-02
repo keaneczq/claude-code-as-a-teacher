@@ -1,0 +1,14 @@
+{
+  "skillListingBudgetFraction": 0.001,
+  "enabledPlugins": {
+    "skill-creator@claude-plugins-official": false,
+    "frontend-design@claude-plugins-official": false,
+    "superpowers@claude-plugins-official": false,
+    "playwright@claude-plugins-official": false,
+    "document-skills@anthropic-agent-skills": false
+  },
+  "skillOverrides": {
+    "matplotx-styling": "user-invocable-only",
+    "ppt-master": "user-invocable-only"
+  }
+}

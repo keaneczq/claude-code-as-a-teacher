@@ -13,6 +13,10 @@ templates/modes/<mode>/   ─→    <topic>/_map.md, _index.md       (注入由 
                                 <topic>/.cc-mode  (mode 哨兵，hook 据此分流)
                                 <topic>/<mode-specific dirs>
                                 <topic>/transcripts/  ←─── SessionEnd hook 自动落档（jsonl + md）
+
+轻量启动（非部署，按需用 cc-lite 命令启动）：
+templates/cc-chat-lite-settings.json ─→ ~/.claude/cc-chat-lite.json   (--settings overlay)
+scripts/cc-lite.sh                    ─→ source 进 ~/.bash_profile / ~/.zshrc (定义 cc-lite)
 ```
 
 - **本仓库**：开发产物，进入这里写代码、改模板、调脚本。
@@ -128,12 +132,25 @@ cd ~/git/cc-chat
 - **跨 topic 互相引用 concept**：每个 topic 自治。如果两个 topic 真的需要共享概念，先讨论再决定如何组织。
 - **手动改 vault 根 `CLAUDE.md`**：那个文件现在只是个 signpost（指向 topic 目录），不承载运行规则。要改 topic 的运行规则，改对应模式的 `templates/modes/<mode>/CLAUDE.md`，然后重新部署到该 topic 目录的 `CLAUDE.md`。
 - **手动改 topic 的 `.cc-mode`**：这个文件由 `new-topic.sh` 一次性写入，之后视为不可变。如果你真的想"切换模式"，新建 topic 重新来。
+- **想靠 vault 里的 `.claude/settings.json` 关插件**：行不通。CC 只读启动目录的 settings、不向上 walk，且 `enabledPlugins:false` 在普通 project scope 关不掉全局已开的插件。要给 cc-chat 子树减负，用 `cc-lite` 启动（见 § 模板更新流程），别在 vault 里放 settings 文件。
 
 ## 模板更新流程
 
 想改 vault 根 `CLAUDE.md`（signpost）时：
 1. 改本仓库的 `templates/vault-CLAUDE.md`
 2. `cp templates/vault-CLAUDE.md ~/Keane/cc-chat/CLAUDE.md` 覆盖
+
+想给 cc-chat 子树减负（轻量启动）时：
+1. 改本仓库的 `templates/cc-chat-lite-settings.json`（源头）
+2. `cp templates/cc-chat-lite-settings.json ~/.claude/cc-chat-lite.json` 部署到运行位置
+3. 用 `cc-lite`（而非 `claude`）从任意 cc-chat topic 启动，即生效
+
+   机制要点（都已实测确认）：
+   - `cc-lite` 是 `scripts/cc-lite.sh` 定义的函数，等价于 `claude --settings ~/.claude/cc-chat-lite.json`。`--settings` 对全局 `~/.claude/settings.json` 做**深合并**：overlay 里写的 key 覆盖全局，没写的（token / hooks / permissions / statusLine）全部继承。所以全局配置改了会自动跟随，**零维护、不漂移**。
+   - overlay 三件事：`skillListingBudgetFraction: 0.001` 把 skill listing 从 ~4.5k 压到接近 0；`enabledPlugins` 全 `false` 关掉 dev 插件（经 `--settings` 高优先级 scope 传入，实测能真正关闭，不只是省描述）；`skillOverrides` 把 user skill 设 `user-invocable-only`（对 Claude 隐藏、`/` 仍可手动调）。
+   - **为什么不用项目级 `.claude/settings.json`**：CC 只读「启动目录」的 settings，不向上 walk；且 vault 的 git root 是整个 `~/Keane`（Obsidian vault），在那放配置粒度太宽。`--settings` 是唯一能精准「仅此子树轻量」又不碰 vault、不嵌套 git repo 的办法。
+   - 普通 `claude` 启动 = 全套工具（dev 仓库、需要插件的场景用这个）；`cc-lite` 启动 = 轻量。由你显式选择，无隐式魔法。
+   - 联网搜索（WebSearch / WebFetch）是 CC 内置工具，任何插件开关都不影响。
 
 想改某个 mode 的运行规则时：
 1. 改本仓库的 `templates/modes/<mode>/CLAUDE.md`
@@ -182,3 +199,5 @@ cd ~/git/cc-chat
 personal mode 由 hook 自动注入 `_profile.md` 全文 + 焦点 `positions/<x>.md` 全文，加起来上限 ~8k。learning mode 由 LLM 按需 Read concepts。
 
 如果超了，LLM 应主动提示你缩小焦点。
+
+以上只算 vault 内容本身。真正吃掉首问 context 的隐形大头是**插件 / MCP / 第三方 SessionStart hook 注入**——Playwright MCP、superpowers 的 using-superpowers 全文注入、document-skills 等加起来能让首问从目标 10–15k 飙到 ~50k。解决办法是用 `cc-lite` 启动（见 § 模板更新流程），把插件和 skill listing 关掉，实测首问从 ~26% 降到 ~23% 区间、Skills 从 4.5k 降到 ~0.8k。如果某次首问 context 异常偏高，先确认是不是忘了用 `cc-lite`、而是用了普通 `claude`。

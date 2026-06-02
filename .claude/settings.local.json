@@ -19,7 +19,11 @@
       "Bash(./tests/test-new-topic.sh)",
       "Bash(echo \"---NEW-TOPIC EXIT: $?---\")",
       "Bash(echo \"---HOOK EXIT: $?---\")",
-      "Bash(grep *)"
+      "Bash(grep *)",
+      "Read(//Users/keane/Keane/cc-chat/**)",
+      "Read(//Users/keane/Keane/cc-chat/feature-engineering/**)",
+      "Read(//Users/keane/.claude/**)",
+      "WebFetch(domain:www.schemastore.org)"
     ]
   }
 }
