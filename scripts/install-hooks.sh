@@ -19,6 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SETTINGS="${CLAUDE_SETTINGS:-$HOME/.claude/settings.json}"
 SESSION_START_CMD="$SCRIPT_DIR/session-start-context.sh"
 SESSION_END_CMD="$SCRIPT_DIR/export-transcript.sh"
+STOP_CMD="$SCRIPT_DIR/live-render.sh"
 
 # --- preflight ---
 command -v jq >/dev/null 2>&1 || { echo "Error: jq is required (brew install jq)" >&2; exit 1; }
@@ -42,6 +43,7 @@ TMP="$(mktemp)"
 jq \
   --arg start_cmd "$SESSION_START_CMD" \
   --arg end_cmd   "$SESSION_END_CMD" \
+  --arg stop_cmd  "$STOP_CMD" \
   '
     # Strip any handler whose command equals our $cmd, then drop empty groups
     def strip_cmd($cmd):
@@ -53,6 +55,7 @@ jq \
     .hooks |= (. // {})
     | .hooks.SessionStart |= ((. // []) | strip_cmd($start_cmd))
     | .hooks.SessionEnd   |= ((. // []) | strip_cmd($end_cmd))
+    | .hooks.Stop         |= ((. // []) | strip_cmd($stop_cmd))
     | .hooks.SessionStart += [{
         "matcher": "startup|resume|clear",
         "hooks": [{
@@ -66,6 +69,14 @@ jq \
         "hooks": [{
           "type": "command",
           "command": $end_cmd,
+          "timeout": 10
+        }]
+      }]
+    | .hooks.Stop += [{
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": $stop_cmd,
           "timeout": 10
         }]
       }]

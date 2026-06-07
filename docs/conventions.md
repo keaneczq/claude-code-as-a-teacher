@@ -108,6 +108,10 @@ cd ~/git/cc-chat
 - 让 CC 边讨论边写 `concepts/*.md`（这是默认行为，写在 vault CLAUDE.md 里）
 - 不重要的来回不需要追问"要不要记下来"，重要的 CC 会自动记
 - 遇到没搞懂的，直接说"加进 questions/open"
+- **想边讨论边在 Obsidian 里看渲染**（LaTeX、代码块在终端读着痛苦）：打开 topic 根的 `_live.md`。它由 `Stop` hook（`live-render.sh`）在每轮回复后自动重渲染当前 session 的完整对话流，Obsidian 会自动重载，近实时看到 MathJax 排好的公式。
+  - 这是**临时阅读面**，不是知识资产：每轮全量覆盖，session 结束时被 `export-transcript.sh` 清掉。别在里面记东西，别 import 它。
+  - 它和模型无关——hook 读的是本来就存在的 transcript JSONL，**零 token 成本**，也不依赖模型记得镜像自己的输出。
+  - `_live.md` 应进 vault 的 `.gitignore`（它是 scratch，不该被 Obsidian git 插件 commit）。
 
 ### 想要总结时
 说"`/consolidate`"或"整理一下"，CC 会：
@@ -122,6 +126,7 @@ cd ~/git/cc-chat
   - `<时间戳>-<sessionid8>.jsonl` 无损备份
   - `<时间戳>-<sessionid8>.md` Obsidian 可读渲染（user/assistant 对话流，thinking 折叠）
 - 如果某次没 /consolidate 就退出，下次 SessionStart hook 会扫到这件事并提示恢复流程：读那份 MD → /consolidate → 再进入新焦点。
+- 进行中那份 `_live.md`（见 § 进行中）在 SessionEnd 归档完成后被清掉——durable 副本已落进 `transcripts/`，临时阅读面没有保留价值。
 - Obsidian 的 git 插件会自动 commit vault，包括本次改动。
 
 ## 反模式（别这么干）

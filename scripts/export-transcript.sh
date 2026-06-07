@@ -62,6 +62,10 @@ if [[ -x "$RENDERER" ]] || [[ -f "$RENDERER" ]]; then
   python3 "$RENDERER" "$OUT_JSONL" "$OUT_MD" 2>/dev/null || true
 fi
 
+# 3. Wipe the live scratch file. The durable copy now lives in transcripts/;
+#    _live.md was only ever the in-session reading surface for Obsidian.
+rm -f "$CWD/_live.md" 2>/dev/null || true
+
 # stderr is shown to the user briefly on session exit; keep it concise
 echo "[cc-chat] archived transcript -> $(basename "$OUT_JSONL"), $(basename "$OUT_MD")" >&2
 exit 0

@@ -1,0 +1,3 @@
+# cc-chat scratch — in-session reading surface, regenerated every turn by the
+# Stop hook (live-render.sh) and wiped on SessionEnd. Never durable.
+_live.md

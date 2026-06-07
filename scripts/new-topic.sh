@@ -78,6 +78,15 @@ if [[ ! -f "$VAULT_CLAUDE" ]]; then
   echo "Deployed: $VAULT_CLAUDE"
 fi
 
+# --- deploy vault-level .gitignore if missing ---
+# Ignores _live.md (the Stop-hook scratch reading surface). Subtree-scoped so it
+# matches every topic's _live.md without touching the wider Obsidian vault.
+VAULT_GITIGNORE="$VAULT_ROOT/.gitignore"
+if [[ ! -f "$VAULT_GITIGNORE" ]]; then
+  cp "$TEMPLATES/vault-gitignore" "$VAULT_GITIGNORE"
+  echo "Deployed: $VAULT_GITIGNORE"
+fi
+
 # --- topic dir ---
 TOPIC_DIR="$VAULT_ROOT/$SLUG"
 if [[ -e "$TOPIC_DIR" ]]; then
